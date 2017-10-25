@@ -260,19 +260,12 @@ int main() {
               ptsy.push_back(ref_y);
             }
 
-            vector<double> next_wp0 = getXY(car_s + 30, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
-                                            map_waypoints_y);
-            vector<double> next_wp1 = getXY(car_s + 60, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
-                                            map_waypoints_y);
-            vector<double> next_wp2 = getXY(car_s + 90, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
-                                            map_waypoints_y);
-            ptsx.push_back(next_wp0[0]);
-            ptsx.push_back(next_wp1[0]);
-            ptsx.push_back(next_wp2[0]);
-
-            ptsy.push_back(next_wp0[1]);
-            ptsy.push_back(next_wp1[1]);
-            ptsy.push_back(next_wp2[1]);
+            for (int i = 1; i <= 3; i++) {
+              vector<double> pos = getXY(car_s + 30 * i, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
+                                         map_waypoints_y);
+              ptsx.push_back(pos[0]);
+              ptsy.push_back(pos[1]);
+            }
 
             // shift reference to car coordinates.
             for (int i = 0; i < ptsx.size(); i++) {
@@ -286,27 +279,19 @@ int main() {
             tk::spline s;
             s.set_points(ptsx, ptsy);
 
-            vector<double> next_x_vals;
-            vector<double> next_y_vals;
-
-            // copy prev points
-            for (int i = 0; i < previous_path_x.size(); i++) {
-              next_x_vals.push_back(previous_path_x[i]);
-              next_y_vals.push_back(previous_path_y[i]);
-            }
-
+            vector<double> next_x_vals = previous_path_x;
+            vector<double> next_y_vals = previous_path_y;
 
             double target_x = 30.0; //m
             double target_y = s(target_x);
             double target_dist = distance(0, 0, target_x, target_y);
 
             // project any missing points
-            double x_add_on = 0;
             double N = (target_dist / (.02 * ref_vel / 2.24)); //convert mph to m/s
-            for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
-              double x_point = x_add_on + target_x / N;
+            double dist_inc = target_x / N;
+            for (int i = 1; i < 50 - previous_path_x.size(); i++) {
+              double x_point = i * dist_inc;
               double y_point = s(x_point);
-              x_add_on = x_point;
 
               double x_ref = x_point;
               double y_ref = y_point;
