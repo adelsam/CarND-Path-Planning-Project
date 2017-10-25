@@ -289,7 +289,7 @@ int main() {
             // project any missing points
             double N = (target_dist / (.02 * ref_vel / 2.24)); //convert mph to m/s
             double dist_inc = target_x / N;
-            for (int i = 1; i < 50 - previous_path_x.size(); i++) {
+            for (int i = 1; i < 50 - prev_size; i++) {
               double x_point = i * dist_inc;
               double y_point = s(x_point);
 
