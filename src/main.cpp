@@ -235,6 +235,31 @@ int main() {
             json msgJson;
 
             // aaron code
+            bool too_close = false;
+            if (prev_size > 0) {
+              car_s = end_path_s; //project to the end
+            }
+
+            for (int i = 0; i < sensor_fusion.size(); i++) {
+              float d = sensor_fusion[i][6];
+              if (d < 2 + 4 * lane + 2 && d > 2 + 4 * lane - 2) {
+                double vx = sensor_fusion[i][3];
+                double vy = sensor_fusion[i][4];
+                double check_speed = sqrt(pow(vx, 2) + pow(vy, 2));
+                double check_car_s = sensor_fusion[i][5];
+                check_car_s += (double) prev_size * .02 * check_speed;
+                if (check_car_s > car_s && check_car_s - car_s < 30) {
+                  too_close = true;
+                }
+              }
+            }
+
+            if (too_close) {
+              ref_vel -= .224;
+            } else if (ref_vel < 49.5) {
+              ref_vel += .224;
+            }
+
             vector<double> ptsx;
             vector<double> ptsy;
             double ref_x = car_x;
