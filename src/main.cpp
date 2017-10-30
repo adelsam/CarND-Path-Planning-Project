@@ -166,6 +166,8 @@ int main() {
   string map_file_ = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
   double max_s = 6945.554;
+  int lane = 1;
+  double ref_vel = 49.5; //mph
 
   ifstream in_map_(map_file_.c_str(), ifstream::in);
 
@@ -190,7 +192,8 @@ int main() {
   }
 
 
-  h.onMessage([&map_waypoints_x, &map_waypoints_y, &map_waypoints_s, &map_waypoints_dx, &map_waypoints_dy](
+  h.onMessage([&map_waypoints_x, &map_waypoints_y, &map_waypoints_s, &map_waypoints_dx, &map_waypoints_dy,
+                      &lane, &ref_vel](
           uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
           uWS::OpCode opCode) {
       // "42" at the start of the message means there's a websocket message event.
@@ -228,31 +231,67 @@ int main() {
             // Sensor Fusion Data, a list of all other cars on the same side of the road.
             auto sensor_fusion = j[1]["sensor_fusion"];
 
-            int lane = 1;
-            double ref_vel = 49.5; //mph
             int prev_size = previous_path_x.size();
 
-            json msgJson;
 
-            // aaron code
             bool too_close = false;
             if (prev_size > 0) {
               car_s = end_path_s; //project to the end
             }
 
+
+            // for each lane, find closest car ahead
+            /**
+             * Sensor Fusion:
+             * [car_id, x_map, y_map, v_x, v_y, s, d]
+             *
+             * Lane Status:
+             * [car_id, v, s]
+             */
+
+            vector<vector<double>> lane_status;
+            vector<double> blank_status = {0, 0, 30};
+
             for (int i = 0; i < sensor_fusion.size(); i++) {
               float d = sensor_fusion[i][6];
-              if (d < 2 + 4 * lane + 2 && d > 2 + 4 * lane - 2) {
-                double vx = sensor_fusion[i][3];
-                double vy = sensor_fusion[i][4];
-                double check_speed = sqrt(pow(vx, 2) + pow(vy, 2));
-                double check_car_s = sensor_fusion[i][5];
-                check_car_s += (double) prev_size * .02 * check_speed;
-                if (check_car_s > car_s && check_car_s - car_s < 30) {
-                  too_close = true;
+              for (int lane_i = 0; lane_i <= 3; lane_i++) {
+                lane_status.push_back(blank_status);
+                if (d < 2 + 4 * lane_i + 2 && d > 2 + 4 * lane_i - 2) {
+                  double vx = sensor_fusion[i][3];
+                  double vy = sensor_fusion[i][4];
+                  double check_speed = sqrt(pow(vx, 2) + pow(vy, 2));
+                  double check_car_s = sensor_fusion[i][5];
+                  check_car_s += (double) prev_size * .02 * check_speed;
+                  if (check_car_s > car_s && check_car_s - car_s < 30) {
+                    double check_car_distance = check_car_s - car_s;
+                    if (check_car_distance < lane_status[lane_i][2]) {
+                      vector<double> status = {sensor_fusion[i][0], check_speed, check_car_distance};
+                      lane_status[lane_i] = status;
+                    }
+                  }
                 }
               }
             }
+
+            // try to steer around traffic
+            if (lane_status[lane][2] < 30) {
+              if (lane == 0 && lane_status[1][2] > lane_status[0][2]) {
+                lane = 1;
+              } else if (lane == 1) {
+                if (lane_status[2][2] > lane_status[1][2] &&
+                    lane_status[2][2] > lane_status[2][2]) {
+                  lane = 2;
+                } else if (lane_status[0][2] > lane_status[1][2]) {
+                  lane = 0;
+                }
+              }
+            }
+
+            // slow down if (new) lane is blocked
+            if (lane_status[lane][2] < 30) {
+              too_close = true;
+            }
+
 
             if (too_close) {
               ref_vel -= .224;
@@ -331,61 +370,7 @@ int main() {
               next_y_vals.push_back(y_point);
             }
 
-
-
-
-            // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-//            // Go straight example:
-//            double dist_inc = 0.5;
-//            for (int i = 1; i < 51; i++) {
-//              double next_s = car_s + i * dist_inc;
-//              double next_d = car_d; // start in middle lane = 6?
-//              vector<double> pos = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-//
-//              next_x_vals.push_back(pos[0]);
-//              next_y_vals.push_back(pos[1]);
-//            }
-
-
-//            // Drive in a circle example
-//            double pos_x;
-//            double pos_y;
-//            double angle;
-//            int path_size = previous_path_x.size();
-//
-//            for(int i = 0; i < path_size; i++)
-//            {
-//              next_x_vals.push_back(previous_path_x[i]);
-//              next_y_vals.push_back(previous_path_y[i]);
-//            }
-//
-//            if(path_size == 0)
-//            {
-//              pos_x = car_x;
-//              pos_y = car_y;
-//              angle = deg2rad(car_yaw);
-//            }
-//            else
-//            {
-//              pos_x = previous_path_x[path_size-1];
-//              pos_y = previous_path_y[path_size-1];
-//
-//              double pos_x2 = previous_path_x[path_size-2];
-//              double pos_y2 = previous_path_y[path_size-2];
-//              angle = atan2(pos_y-pos_y2,pos_x-pos_x2);
-//            }
-//
-//            double dist_inc = 0.5;
-//            for(int i = 0; i < 50-path_size; i++)
-//            {
-//              next_x_vals.push_back(pos_x+(dist_inc)*cos(angle+(i+1)*(pi()/100)));
-//              next_y_vals.push_back(pos_y+(dist_inc)*sin(angle+(i+1)*(pi()/100)));
-//              pos_x += (dist_inc)*cos(angle+(i+1)*(pi()/100));
-//              pos_y += (dist_inc)*sin(angle+(i+1)*(pi()/100));
-//            }
-
-
-
+            json msgJson;
             msgJson["next_x"] = next_x_vals;
             msgJson["next_y"] = next_y_vals;
 
