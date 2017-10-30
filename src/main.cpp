@@ -249,13 +249,16 @@ int main() {
              * [car_id, v, s]
              */
 
-            vector<vector<double>> lane_status;
+            vector<vector<double>> ahead_status;
             vector<double> blank_status = {0, 0, 30};
+            vector<vector<double>> behind_status;
+            vector<double> blank_behind = {0, 0, -30};
 
             for (int i = 0; i < sensor_fusion.size(); i++) {
               float d = sensor_fusion[i][6];
               for (int lane_i = 0; lane_i <= 3; lane_i++) {
-                lane_status.push_back(blank_status);
+                ahead_status.push_back(blank_status);
+                behind_status.push_back(blank_behind);
                 if (d < 2 + 4 * lane_i + 2 && d > 2 + 4 * lane_i - 2) {
                   double vx = sensor_fusion[i][3];
                   double vy = sensor_fusion[i][4];
@@ -264,9 +267,16 @@ int main() {
                   check_car_s += (double) prev_size * .02 * check_speed;
                   if (check_car_s > car_s && check_car_s - car_s < 30) {
                     double check_car_distance = check_car_s - car_s;
-                    if (check_car_distance < lane_status[lane_i][2]) {
+                    if (check_car_distance < ahead_status[lane_i][2]) {
                       vector<double> status = {sensor_fusion[i][0], check_speed, check_car_distance};
-                      lane_status[lane_i] = status;
+                      ahead_status[lane_i] = status;
+                    }
+                  }
+                  if (check_car_s < car_s && check_car_s - car_s > -30) {
+                    double check_car_distance = check_car_s - car_s;
+                    if (check_car_distance > behind_status[lane_i][2]) {
+                      vector<double> status = {sensor_fusion[i][0], check_speed, check_car_distance};
+                      behind_status[lane_i] = status;
                     }
                   }
                 }
@@ -274,21 +284,27 @@ int main() {
             }
 
             // try to steer around traffic
-            if (lane_status[lane][2] < 30) {
-              if (lane == 0 && lane_status[1][2] > lane_status[0][2]) {
+            if (ahead_status[lane][2] < 30) {
+              if (lane == 0 && ahead_status[1][2] > ahead_status[0][2] &&
+                  behind_status[1][2] < -10) {
                 lane = 1;
               } else if (lane == 1) {
-                if (lane_status[2][2] > lane_status[1][2] &&
-                    lane_status[2][2] > lane_status[2][2]) {
+                if (ahead_status[2][2] > ahead_status[1][2] &&
+                    ahead_status[2][2] > ahead_status[0][2] &&
+                    behind_status[2][2] < -10) {
                   lane = 2;
-                } else if (lane_status[0][2] > lane_status[1][2]) {
+                } else if (ahead_status[0][2] > ahead_status[1][2] &&
+                           behind_status[0][2] < -10) {
                   lane = 0;
                 }
+              } else if (lane == 2 && ahead_status[1][2] > ahead_status[2][2] &&
+                         behind_status[1][2] < -10) {
+                lane = 1;
               }
             }
 
             // slow down if (new) lane is blocked
-            if (lane_status[lane][2] < 30) {
+            if (ahead_status[lane][2] < 30) {
               too_close = true;
             }
 
