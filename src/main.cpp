@@ -250,7 +250,7 @@ int main() {
              */
 
             vector<vector<double>> ahead_status;
-            vector<double> blank_status = {0, 0, 30};
+            vector<double> blank_status = {0, 0, 60};
             vector<vector<double>> behind_status;
             vector<double> blank_behind = {0, 0, -30};
 
@@ -265,7 +265,7 @@ int main() {
                   double check_speed = sqrt(pow(vx, 2) + pow(vy, 2));
                   double check_car_s = sensor_fusion[i][5];
                   check_car_s += (double) prev_size * .02 * check_speed;
-                  if (check_car_s > car_s && check_car_s - car_s < 30) {
+                  if (check_car_s > car_s && check_car_s - car_s < 60) {
                     double check_car_distance = check_car_s - car_s;
                     if (check_car_distance < ahead_status[lane_i][2]) {
                       vector<double> status = {sensor_fusion[i][0], check_speed, check_car_distance};
@@ -286,19 +286,19 @@ int main() {
             // try to steer around traffic
             if (ahead_status[lane][2] < 30) {
               if (lane == 0 && ahead_status[1][2] > ahead_status[0][2] &&
-                  behind_status[1][2] < -10) {
+                  behind_status[1][2] < -2) {
                 lane = 1;
               } else if (lane == 1) {
                 if (ahead_status[2][2] > ahead_status[1][2] &&
                     ahead_status[2][2] > ahead_status[0][2] &&
-                    behind_status[2][2] < -10) {
+                    behind_status[2][2] < -2) {
                   lane = 2;
                 } else if (ahead_status[0][2] > ahead_status[1][2] &&
-                           behind_status[0][2] < -10) {
+                           behind_status[0][2] < -2) {
                   lane = 0;
                 }
               } else if (lane == 2 && ahead_status[1][2] > ahead_status[2][2] &&
-                         behind_status[1][2] < -10) {
+                         behind_status[1][2] < -2) {
                 lane = 1;
               }
             }
