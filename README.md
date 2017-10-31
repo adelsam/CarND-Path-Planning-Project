@@ -2,15 +2,15 @@
 Self-Driving Car Engineer Nanodegree Program
 
 ### Writeup
-I chose to implement a deterministic path planner optimized for the situations encountered on this straightforward
-three lane highway.  Since there are three lanes, with no on-ramps or off-ramps, the car only has to deal with
+I chose to implement a deterministic path planner optimized for the situations encountered in the simulator.
+Since there are three lanes, with no on-ramps or off-ramps, the car only has to deal with
 a limited number of scenarios, so it is simpler to handle them explicitly.
 
 ### Base Behavior
 When the car isn't doing anything else, it just needs to keep its lane.  This implementation was mostly taken
 from Aaron's project walk-through, with some tuning for performance.  The next three waypoints from the map
 are converted from global cartesian coordinates to frenet coordinates relative to the car, based on the intended
-lane, and then use to create a spline: (line 352)
+lane, and then used to create a spline: (line 352)
 ```C++
 for (int i = 1; i <= 3; i++) {
   vector<double> pos = getXY(car_s + 30 * i, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
@@ -20,11 +20,11 @@ for (int i = 1; i <= 3; i++) {
 }
 ```
 ...
-```
+```C++
 tk::spline s;
 s.set_points(ptsx, ptsy);
 ```
-The [tk spline library][http://kluge.in-chemnitz.de/opensource/spline/] makes the generation of the spline really
+The [tk spline library](http://kluge.in-chemnitz.de/opensource/spline/) makes the generation of the spline really
 easy.
 
 Also, if the car cannot change lanes, it must slow down to avoid cars in front of it.  I re-use the output from
@@ -32,30 +32,30 @@ sensor fusion to check for a car in the current lane and reduce the reference ve
 
 ### Decisions
 The options available to the car depend on the current lane.
-## Left Lane
+#### Left Lane
 In the left lane (lane = 0), the car can go straight or change lanes to the right.  I was able to get acceptable
 results comparing only the distance to the car ahead in the left lane versus the center lane (line 293).  If the
 closest car ahead is further out in the center lane versus the left lane, then we want to change lanes.  In order
 to make sure it is safe to do so, I also check that the closest car behind is at least 3 m behind the projected
 frenet s distance for the ego car.  If the car ahead in the left lane is more than 30m ahead, then there's no need
 to change lanes.
-```
+```C++
   if (ahead_status[lane][2] < 30) {
     if (lane == 0 && ahead_status[1][2] > ahead_status[0][2] &&
         behind_status[1][2] < -3) {
       lane = 1;
     ...
 ```
-## Center Lane
+#### Center Lane
 The center lane is a bit more complicated, since the car can choose to go straight, change lanes to the left or
 change lanes to the right.  The logic is similar to the left lane, but I compare the distance of the car(s) ahead
 of the ego car in all three lanes and choose the lane with the most space.  If there is a better lane, I check
 for space in the lane by looking at the cars behind using the same buffer of 3 m for both potential lane changes.
 
-## Right Lane
+#### Right Lane
 Like the Left lane, there are only two choices.  Decision made to maximize the distance ahead of the car.
 
-## Caveats
+#### Caveats
 To prevent the car from quickly crossing all three lanes, I introduced a cool-off period of 5 cycles (1 second)
 after a lane change initiated from the Left- or Right-most lane.  This forces the car to drive in the center lane
 for at least 1 s prior to initiating a second lane change.
