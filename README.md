@@ -1,11 +1,70 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
-   
+
+### Writeup
+I chose to implement a deterministic path planner optimized for the situations encountered on this straightforward
+three lane highway.  Since there are three lanes, with no on-ramps or off-ramps, the car only has to deal with
+a limited number of scenarios, so it is simpler to handle them explicitly.
+
+### Base Behavior
+When the car isn't doing anything else, it just needs to keep its lane.  This implementation was mostly taken
+from Aaron's project walk-through, with some tuning for performance.  The next three waypoints from the map
+are converted from global cartesian coordinates to frenet coordinates relative to the car, based on the intended
+lane, and then use to create a spline: (line 352)
+```C++
+for (int i = 1; i <= 3; i++) {
+  vector<double> pos = getXY(car_s + 30 * i, (2 + 4 * lane), map_waypoints_s, map_waypoints_x,
+                             map_waypoints_y);
+  ptsx.push_back(pos[0]);
+  ptsy.push_back(pos[1]);
+}
+```
+...
+```
+tk::spline s;
+s.set_points(ptsx, ptsy);
+```
+The [tk spline library][http://kluge.in-chemnitz.de/opensource/spline/] makes the generation of the spline really
+easy.
+
+Also, if the car cannot change lanes, it must slow down to avoid cars in front of it.  I re-use the output from
+sensor fusion to check for a car in the current lane and reduce the reference velocity if required (line 315).
+
+### Decisions
+The options available to the car depend on the current lane.
+## Left Lane
+In the left lane (lane = 0), the car can go straight or change lanes to the right.  I was able to get acceptable
+results comparing only the distance to the car ahead in the left lane versus the center lane (line 293).  If the
+closest car ahead is further out in the center lane versus the left lane, then we want to change lanes.  In order
+to make sure it is safe to do so, I also check that the closest car behind is at least 3 m behind the projected
+frenet s distance for the ego car.  If the car ahead in the left lane is more than 30m ahead, then there's no need
+to change lanes.
+```
+  if (ahead_status[lane][2] < 30) {
+    if (lane == 0 && ahead_status[1][2] > ahead_status[0][2] &&
+        behind_status[1][2] < -3) {
+      lane = 1;
+    ...
+```
+## Center Lane
+The center lane is a bit more complicated, since the car can choose to go straight, change lanes to the left or
+change lanes to the right.  The logic is similar to the left lane, but I compare the distance of the car(s) ahead
+of the ego car in all three lanes and choose the lane with the most space.  If there is a better lane, I check
+for space in the lane by looking at the cars behind using the same buffer of 3 m for both potential lane changes.
+
+## Right Lane
+Like the Left lane, there are only two choices.  Decision made to maximize the distance ahead of the car.
+
+## Caveats
+To prevent the car from quickly crossing all three lanes, I introduced a cool-off period of 5 cycles (1 second)
+after a lane change initiated from the Left- or Right-most lane.  This forces the car to drive in the center lane
+for at least 1 s prior to initiating a second lane change.
+
 ### Simulator.
-You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
+Code runs with the Udacity Term3 Simulator [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
 
 ### Goals
-In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 50 m/s^3.
+Safely navigate around a virtual highway with localization and sensor fusion data.  Pass slower traffic when possible. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 50 m/s^3.
 
 #### The map of the highway is in data/highway_map.txt
 Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
@@ -86,51 +145,6 @@ A really helpful resource for doing this project and creating smooth trajectorie
     cd uWebSockets
     git checkout e94b6e1
     ```
-
-## Editor Settings
-
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
-
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
-
-## Code Style
-
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
-
-## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
-
-
-## Call for IDE Profiles Pull Requests
-
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
 
 One last note here: regardless of the IDE used, every submitted project must
 still be compilable with cmake and make./
