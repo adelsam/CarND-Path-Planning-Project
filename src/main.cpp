@@ -292,20 +292,20 @@ int main() {
             if (cool == 0) {
               if (ahead_status[lane][2] < 30) {
                 if (lane == 0 && ahead_status[1][2] > ahead_status[0][2] &&
-                    behind_status[1][2] < -2) {
+                    behind_status[1][2] < -3) {
                   lane = 1;
                   cool = 5;
                 } else if (lane == 1) {
                   if (ahead_status[2][2] > ahead_status[1][2] &&
                       ahead_status[2][2] > ahead_status[0][2] &&
-                      behind_status[2][2] < -2) {
+                      behind_status[2][2] < -3) {
                     lane = 2;
                   } else if (ahead_status[0][2] > ahead_status[1][2] &&
-                             behind_status[0][2] < -2) {
+                             behind_status[0][2] < -3) {
                     lane = 0;
                   }
                 } else if (lane == 2 && ahead_status[1][2] > ahead_status[2][2] &&
-                           behind_status[1][2] < -2) {
+                           behind_status[1][2] < -3) {
                   lane = 1;
                   cool = 5;
                 }
